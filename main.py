@@ -27,14 +27,14 @@ y = y.values
 def softThres(x, λ):
     return np.sign(x) * np.maximum(np.abs(x) - λ, 0)
 
-def lassoCoordinateDescent(X, y, λ, max_iter = 1000, tol = 1e-20):
+def lassoCoordinateDescent(X, y, λ, max_iter = 100000, tol = 1e-8):
     n_samples, n_vars = X.shape
     β = np.zeros(n_vars)
 
     iteration = 0
 
     while iteration < max_iter:
-        new_β = np.zeros(n_vars)
+        old_β = β.copy()
 
         for k in range(n_vars):
             c1 = (X[:, k] ** 2).sum()
@@ -48,31 +48,35 @@ def lassoCoordinateDescent(X, y, λ, max_iter = 1000, tol = 1e-20):
                 β[k] = 0
             
 
-        if np.all(np.abs(new_β - β) < tol):
+        iteration += 1
+        if np.all(np.abs(β - old_β) < tol):
             break
 
-        iteration += 1
+    print("Results Coordinate Descent:")
+    print("Iteration: ", iteration)
+    print("Final Value: ", β)
 
-    return β
-
-def lassoProximalGradientDescent(X, y, λ, t=0.05, max_iter=1000, tol=1e-20):
+def lassoProximalGradientDescent(X, y, λ, t=0.5, max_iter=100000, tol=1e-8):
     n_samples, n_vars = X.shape
     β = np.zeros(n_vars)
     iteration = 0
 
     while iteration < max_iter:
+        old_β = β.copy()
+
         gradient = (X.T @ (X @ β - y)) / n_samples
-        new_β = softThres(β - t * gradient, t * λ)
+        β = softThres(β - t * gradient, t * λ)
 
-        if np.all(np.abs(new_β - β) < tol):
-            break
-
-        β = new_β
         iteration += 1
 
-    return β
+        if np.all(np.abs(old_β - β) < tol):
+            break
 
-def lassoADMM(X, y, λ, rho=1.0, max_iter=1000, tol=1e-4):
+    print("Results Proximal Gradienct Descent:")
+    print("Iteration: ", iteration)
+    print("Final Value: ", β)
+
+def lassoADMM(X, y, λ, rho=0.1, max_iter=100000, tol=1e-8):
     n_samples, n_vars = X.shape
     β = np.zeros(n_vars)
     z = np.zeros(n_vars)
@@ -80,20 +84,25 @@ def lassoADMM(X, y, λ, rho=1.0, max_iter=1000, tol=1e-4):
     XTX = X.T @ X
     XTy = X.T @ y
     inv_matrix = np.linalg.inv(XTX / n_samples + rho * np.eye(n_vars))
+    iteration = 0
     for i in range(max_iter):
-        β = inv_matrix @ (XTy / n_samples + rho * z - u)
-        z_new = softThres(β + u / rho, λ / rho)
-        u = u + rho * (β - z_new)
+        old_β = β.copy()
 
-        if np.linalg.norm(z_new - z) < tol:
+        new_β = inv_matrix @ (XTy / n_samples + rho * z - u)
+        z = softThres(new_β + u / rho, λ / rho)
+        u = u + rho * (new_β - z)
+        β = new_β
+
+        iteration += 1
+
+        if np.all(np.abs(old_β - β) < tol):
             break
-        z = z_new
-    return β
+        
+    print("Results ADMM:")
+    print("Iteration: ", iteration)
+    print("Final Value: ", β)
 
 
-res1 = lassoCoordinateDescent(X, y, np.exp(-3))
-res2 = lassoProximalGradientDescent(X, y, np.exp(-3))
-res3 = lassoADMM(X, y, np.exp(-3))
-print(res1)
-print(res2)
-print(res3)
+lassoCoordinateDescent(X, y, np.exp(-3))
+lassoProximalGradientDescent(X, y, np.exp(-3))
+lassoADMM(X, y, np.exp(-3))
